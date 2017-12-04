@@ -49,6 +49,9 @@
 @property (assign, nonatomic) CGSize tagExtraSpace;
 // Tag max width for a text tag. 0 and below means no max width.
 @property (assign, nonatomic) CGFloat tagMaxWidth;
+
+// Bounce animation
+@property (assign, nonatomic) BOOL tagShouldAnimateTouches;
 @end
 
 /// TTGTextTagCollectionView

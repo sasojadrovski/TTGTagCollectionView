@@ -43,6 +43,8 @@
         
         _tagExtraSpace = CGSizeMake(14, 14);
         _tagMaxWidth = 0.0f;
+
+        _tagShouldAnimateTouches = NO;
     }
     return self;
 }
@@ -81,6 +83,8 @@
     
     newConfig.tagExtraSpace = _tagExtraSpace;
     newConfig.tagMaxWidth = _tagMaxWidth;
+
+    newConfig.tagShouldAnimateTouches = _tagShouldAnimateTouches;
     
     return newConfig;
 }
@@ -92,12 +96,128 @@
 #pragma mark - GradientLabel
 
 @interface GradientLabel: UILabel
+@property (assign, nonatomic) NSTimeInterval beginAnimationDuration;
+@property (assign, nonatomic) NSTimeInterval endAnimationDuration;
+@property (assign, nonatomic) CGFloat initialSpringVelocity;
+@property (assign, nonatomic) CGFloat usingSpringWithDamping;
+@property (assign, nonatomic) CGFloat animationScale;
+@property (assign, nonatomic) BOOL isBounceAnimationEnabled;
+@property (assign, nonatomic, readonly) BOOL isAnimating;
+@end
+
+@interface GradientLabel ()
+@property (assign, readwrite) BOOL isAnimating;
 @end
 
 @implementation GradientLabel
+
+#pragma mark Overrides
+
 + (Class)layerClass {
     return [CAGradientLayer class];
 }
+
+- (void)setIsBounceAnimationEnabled:(BOOL)isBounceAnimationEnabled {
+    _isBounceAnimationEnabled = isBounceAnimationEnabled;
+}
+
+#pragma mark Initialization
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+    self = [super initWithFrame:frame];
+    if (self) {
+        [self commonInit];
+    }
+    return self;
+}
+
+- (void)commonInit {
+    [self setUserInteractionEnabled:YES];
+    self.beginAnimationDuration = 0.2;
+    self.endAnimationDuration = 0.25;
+    self.initialSpringVelocity = 6.0;
+    self.usingSpringWithDamping = 0.3;
+    self.animationScale = 0.97;
+}
+
+#pragma mark UIResponder Methods
+
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (!self.isBounceAnimationEnabled) {
+        [super touchesBegan:touches withEvent:event];
+        return;
+    }
+    self.isAnimating = YES;
+    [UIView animateWithDuration:self.beginAnimationDuration animations:^{
+        self.transform = CGAffineTransformMakeScale(self.animationScale, self.animationScale);
+    } completion:^(BOOL finished) {
+        self.isAnimating = NO;
+    }];
+    [super touchesBegan:touches withEvent:event];
+}
+
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (!self.isBounceAnimationEnabled) {
+        [super touchesMoved:touches withEvent:event];
+        return;
+    }
+    UITouch *tap = touches.allObjects.firstObject;
+    CGPoint point = [tap locationInView:self];
+    self.isAnimating = YES;
+    if (CGRectContainsPoint(self.bounds, point)) {
+        [UIView animateWithDuration:self.beginAnimationDuration animations:^{
+            self.transform = CGAffineTransformMakeScale(self.animationScale, self.animationScale);
+        } completion:^(BOOL finished) {
+            self.isAnimating = NO;
+        }];
+    } else {
+        [UIView animateWithDuration:self.beginAnimationDuration animations:^{
+            self.transform = CGAffineTransformIdentity;
+        } completion:^(BOOL finished) {
+            self.isAnimating = NO;
+        }];
+    }
+    [super touchesMoved:touches withEvent:event];
+}
+
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (!self.isBounceAnimationEnabled) {
+        [super touchesEnded:touches withEvent:event];
+        return;
+    }
+    self.isAnimating = YES;
+    [UIView animateWithDuration:self.endAnimationDuration
+                          delay:0.0
+         usingSpringWithDamping:self.usingSpringWithDamping
+          initialSpringVelocity:self.initialSpringVelocity
+                        options:UIViewAnimationOptionAllowUserInteraction
+                     animations:^{
+                         self.transform = CGAffineTransformIdentity;
+                     } completion:^(BOOL finished) {
+                         self.isAnimating = NO;
+                     }];
+    [super touchesEnded:touches withEvent:event];
+}
+
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (!self.isBounceAnimationEnabled) {
+        [super touchesCancelled:touches withEvent:event];
+        return;
+    }
+    [UIView animateWithDuration:self.endAnimationDuration
+                          delay:0.0
+         usingSpringWithDamping:self.usingSpringWithDamping
+          initialSpringVelocity:self.initialSpringVelocity
+                        options:UIViewAnimationOptionAllowUserInteraction
+                     animations:^{
+                         self.transform = CGAffineTransformIdentity;
+                     } completion:^(BOOL finished) {
+                         self.isAnimating = NO;
+                     }];
+    [super touchesCancelled:touches withEvent:event];
+}
+
 @end
 
 // UILabel wrapper for round corner and shadow at the same time.
@@ -630,6 +750,8 @@
     }
     
     label.frame = (CGRect){label.frame.origin, size};
+
+    label.label.isBounceAnimationEnabled = config.tagShouldAnimateTouches;
 }
 
 - (TTGTextTagLabel *)newLabelForTagText:(NSString *)tagText withConfig:(TTGTextTagConfig *)config {
